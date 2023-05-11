@@ -6,10 +6,9 @@ import (
 	"strings"
 )
 
-func (c *Controller) verification(h http.Handler) http.Handler {
+func (c *Controller) middleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		header := r.Header.Get("Authorization")
-
 		headerParts := strings.Split(header, " ")
 
 		if len(headerParts) != 2 {
@@ -17,14 +16,21 @@ func (c *Controller) verification(h http.Handler) http.Handler {
 			return
 		}
 
-		userId, err := c.services.Authorization.ParseToken(headerParts[1])
-
+		username, err := c.services.Authorization.ParseToken(headerParts[1])
 		if err != nil {
 			w.WriteHeader(401)
 			return
 		}
 
-		ctx := context.WithValue(r.Context(), "userId", userId)
+		newToken, err := c.services.Authorization.RefreshToken(headerParts[1])
+		if err != nil {
+			w.WriteHeader(401)
+			return
+		}
+
+		w.Header().Set("Authorization", newToken)
+
+		ctx := context.WithValue(r.Context(), "username", username)
 		r = r.WithContext(ctx)
 
 		h.ServeHTTP(w, r)

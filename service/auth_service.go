@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	tokenTTL = 12 * time.Hour    // время жизни токена
-	tokenKey = "your-secret-key" // ключ для подписи токена
+	tokenTTL = 5 * time.Minute
+	tokenKey = "your-secret-key"
 )
 
 type AuthService struct {
@@ -37,8 +37,9 @@ func (r *AuthService) GenerateToken(username, password string) (string, error) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"username": user.Username,
-		"exp":      time.Now().Add(tokenTTL).Unix(),
+		"username":     user.Username,
+		"access_token": true,
+		"exp":          time.Now().Add(tokenTTL).Unix(),
 	})
 
 	return token.SignedString([]byte(tokenKey))
@@ -46,22 +47,62 @@ func (r *AuthService) GenerateToken(username, password string) (string, error) {
 
 func (r *AuthService) ParseToken(accessToken string) (string, error) {
 	token, err := jwt.Parse(accessToken, func(token *jwt.Token) (interface{}, error) {
-		// Проверяем, что метод подписи токена соответствует нашему методу
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errors.New("invalid token")
 		}
 		return []byte(tokenKey), nil
 	})
 
-	// Если токен не валиден или истекло время жизни
-	if err != nil || !token.Valid {
+	if _, ok := token.Claims.(jwt.MapClaims)["access_token"]; !ok {
+		return "", errors.New("invalid token type")
+	}
+
+	if err != nil {
 		return "", errors.New("invalid token")
 	}
 
-	// Получаем и возвращаем имя пользователя
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
 		return "", errors.New("invalid token")
 	}
+
 	return claims["username"].(string), nil
+}
+
+func (r *AuthService) RefreshToken(accessToken string) (string, error) {
+	token, err := jwt.Parse(accessToken, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, errors.New("invalid token")
+		}
+		return []byte(tokenKey), nil
+	})
+	if err != nil {
+		return "", err
+	}
+
+	if _, ok := token.Claims.(jwt.MapClaims)["access_token"]; !ok {
+		return "", errors.New("invalid token type")
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return "", errors.New("invalid token")
+	}
+	username, ok := claims["username"].(string)
+	if !ok {
+		return "", errors.New("invalid token")
+	}
+
+	newToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"username":     username,
+		"access_token": true,
+		"exp":          time.Now().Add(tokenTTL).Unix(),
+	})
+
+	newTokenString, err := newToken.SignedString([]byte(tokenKey))
+	if err != nil {
+		return "", err
+	}
+
+	return newTokenString, nil
 }

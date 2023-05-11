@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 type authorizationBody struct {
@@ -52,6 +53,38 @@ func (c *Controller) login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	token, err := c.services.Authorization.GenerateToken(auth.Username, auth.Password)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		log.Print(err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(map[string]interface{}{
+		"token": token,
+	})
+
+	if err != nil {
+		log.Print(err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (c *Controller) refresh(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Content-Type", "application/json")
+
+	header := r.Header.Get("Authorization")
+	headerParts := strings.Split(header, " ")
+
+	if len(headerParts) != 2 {
+		w.WriteHeader(401)
+		return
+	}
+
+	token, err := c.services.Authorization.RefreshToken(headerParts[1])
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		log.Print(err)

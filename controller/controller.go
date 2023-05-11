@@ -23,6 +23,8 @@ func (c *Controller) InitRoutes() *mux.Router {
 
 	auth.HandleFunc("/register", c.register).Methods("POST")
 
+	auth.HandleFunc("/refresh", c.refresh).Methods("POST")
+
 	items := router.PathPrefix("/items").Subrouter()
 	comments := router.PathPrefix("/comments").Subrouter()
 	category := router.PathPrefix("/categories").Subrouter()
@@ -31,11 +33,11 @@ func (c *Controller) InitRoutes() *mux.Router {
 
 	// -> middleware
 
-	items.Use(c.verification)
-	comments.Use(c.verification)
-	category.Use(c.verification)
-	users.Use(c.verification)
-	purchase.Use(c.verification)
+	items.Use(c.middleware)
+	comments.Use(c.middleware)
+	category.Use(c.middleware)
+	users.Use(c.middleware)
+	purchase.Use(c.middleware)
 
 	// -> category start
 
