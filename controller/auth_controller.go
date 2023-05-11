@@ -52,7 +52,7 @@ func (c *Controller) login(w http.ResponseWriter, r *http.Request) {
 		log.Print(err)
 	}
 
-	token, err := c.services.Authorization.GenerateToken(auth.Username, auth.Password)
+	token, refreshToken, err := c.services.Authorization.GenerateToken(auth.Username, auth.Password)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		log.Print(err)
@@ -60,7 +60,8 @@ func (c *Controller) login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = json.NewEncoder(w).Encode(map[string]interface{}{
-		"token": token,
+		"access_token":  token,
+		"refresh_token": refreshToken,
 	})
 
 	if err != nil {
@@ -84,7 +85,7 @@ func (c *Controller) refresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := c.services.Authorization.RefreshToken(headerParts[1])
+	token, refreshToken, err := c.services.Authorization.RefreshToken(headerParts[1])
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		log.Print(err)
@@ -92,7 +93,8 @@ func (c *Controller) refresh(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = json.NewEncoder(w).Encode(map[string]interface{}{
-		"token": token,
+		"access_token":  token,
+		"refresh_token": refreshToken,
 	})
 
 	if err != nil {

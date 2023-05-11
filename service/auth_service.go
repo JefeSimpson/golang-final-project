@@ -30,10 +30,10 @@ func (r *AuthService) RegisterUser(user model.User) error {
 	return nil
 }
 
-func (r *AuthService) GenerateToken(username, password string) (string, error) {
+func (r *AuthService) GenerateToken(username, password string) (string, string, error) {
 	user, err := r.authRepo.Login(username, password)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
@@ -42,7 +42,22 @@ func (r *AuthService) GenerateToken(username, password string) (string, error) {
 		"exp":          time.Now().Add(tokenTTL).Unix(),
 	})
 
-	return token.SignedString([]byte(tokenKey))
+	tknStr, err := token.SignedString([]byte(tokenKey))
+	if err != nil {
+		return "", "", err
+	}
+
+	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"username":      user.Username,
+		"refresh_token": true,
+		"exp":           time.Now().Add(tokenTTL * 3).Unix(),
+	})
+
+	refreshTknStr, err := refreshToken.SignedString([]byte(tokenKey))
+	if err != nil {
+		return "", "", err
+	}
+	return tknStr, refreshTknStr, nil
 }
 
 func (r *AuthService) ParseToken(accessToken string) (string, error) {
@@ -69,7 +84,7 @@ func (r *AuthService) ParseToken(accessToken string) (string, error) {
 	return claims["username"].(string), nil
 }
 
-func (r *AuthService) RefreshToken(accessToken string) (string, error) {
+func (r *AuthService) RefreshToken(accessToken string) (string, string, error) {
 	token, err := jwt.Parse(accessToken, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errors.New("invalid token")
@@ -77,20 +92,21 @@ func (r *AuthService) RefreshToken(accessToken string) (string, error) {
 		return []byte(tokenKey), nil
 	})
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
-	if _, ok := token.Claims.(jwt.MapClaims)["access_token"]; !ok {
-		return "", errors.New("invalid token type")
+	if _, ok := token.Claims.(jwt.MapClaims)["refresh_token"]; !ok {
+		return "", "", errors.New("invalid token type")
 	}
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
-		return "", errors.New("invalid token")
+		return "", "", errors.New("invalid token")
 	}
+
 	username, ok := claims["username"].(string)
 	if !ok {
-		return "", errors.New("invalid token")
+		return "", "", errors.New("invalid token")
 	}
 
 	newToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
@@ -99,10 +115,21 @@ func (r *AuthService) RefreshToken(accessToken string) (string, error) {
 		"exp":          time.Now().Add(tokenTTL).Unix(),
 	})
 
+	newRefreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"username":      username,
+		"refresh_token": true,
+		"exp":           time.Now().Add(tokenTTL * 3).Unix(),
+	})
+
 	newTokenString, err := newToken.SignedString([]byte(tokenKey))
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
-	return newTokenString, nil
+	newRefreshTokenString, err := newRefreshToken.SignedString([]byte(tokenKey))
+	if err != nil {
+		return "", "", err
+	}
+
+	return newTokenString, newRefreshTokenString, nil
 }

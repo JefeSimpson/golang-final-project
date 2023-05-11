@@ -22,13 +22,13 @@ func (c *Controller) middleware(h http.Handler) http.Handler {
 			return
 		}
 
-		newToken, err := c.services.Authorization.RefreshToken(headerParts[1])
-		if err != nil {
-			w.WriteHeader(401)
-			return
-		}
-
-		w.Header().Set("Authorization", newToken)
+		//newToken, err := c.services.Authorization.RefreshToken(headerParts[1])
+		//if err != nil {
+		//	w.WriteHeader(401)
+		//	return
+		//}
+		//
+		//w.Header().Set("Authorization", newToken)
 
 		ctx := context.WithValue(r.Context(), "username", username)
 		r = r.WithContext(ctx)

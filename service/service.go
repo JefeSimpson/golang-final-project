@@ -44,9 +44,9 @@ type Items interface {
 }
 type Authorization interface {
 	RegisterUser(user model.User) error
-	GenerateToken(username, password string) (string, error)
+	GenerateToken(username, password string) (string, string, error)
 	ParseToken(accessToken string) (string, error)
-	RefreshToken(accessToken string) (string, error)
+	RefreshToken(accessToken string) (string, string, error)
 }
 
 type Users interface {
